@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -445,6 +446,27 @@ will not overwrite existing keys or certificates.
 	} else if *encryptCAKey {
 		acOpts.mode = createAndEncrypt
 	}
+	if len(flag.Args()) > 0 {
+		fmt.Printf("Extra arguments: %s (maybe there are spaces in your domain list?)\n", flag.Args())
+		os.Exit(1)
+	}
+
+	domainSlice := split(*domains)
+	domainRe := regexp.MustCompile("^[A-Za-z0-9.*-]+$")
+	for _, d := range domainSlice {
+		if !domainRe.MatchString(d) {
+			fmt.Printf("Invalid domain name %q\n", d)
+			os.Exit(1)
+		}
+	}
+	ipSlice := split(*ipAddresses)
+	for _, ip := range ipSlice {
+		if net.ParseIP(ip) == nil {
+			fmt.Printf("Invalid IP address %q\n", ip)
+			os.Exit(1)
+		}
+	}
+
 	issuer, err := getIssuer(*caKey, *caCert, acOpts)
 	if err != nil {
 		return err
@@ -452,7 +474,8 @@ will not overwrite existing keys or certificates.
 	if *rootCAOnly {
 		return nil
 	}
-	_, err = sign(issuer, split(*domains), split(*ipAddresses))
+	_, err = sign(issuer, domainSlice, ipSlice)
+
 	return err
 }
 
